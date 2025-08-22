@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Excel Sheet Unlocker (Local)</title>
+  <!-- Unlock icon for the browser tab -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2-000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔓</text></svg>" />
+  <style>
+    body { 
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f7f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #333;
+    }
+    .container {
+      background-color: #fff;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      max-width: 600px;
+      width: 90%;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2.5rem;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+    p {
+      color: #666;
+      line-height: 1.6;
+    }
+    .disclaimer, .app-content {
+      padding: 20px;
+    }
+    .disclaimer strong {
+      color: #e74c3c;
+    }
+    .disclaimer button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      margin-top: 20px;
+    }
+    .disclaimer button:hover {
+      background-color: #2980b9;
+      transform: translateY(-2px);
+    }
+    .drop-zone {
+      border: 2px dashed #bdc3c7;
+      border-radius: 12px;
+      padding: 50px;
+      text-align: center;
+      margin-top: 20px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      background-color: #fafafa;
+    }
+    .drop-zone:hover {
+      border-color: #3498db;
+      background-color: #ecf0f1;
+    }
+    .drop-zone p {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #7f8c8d;
+    }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      color: #2ecc71;
+    }
+    .app-content {
+      display: none;
+    }
+    .download-btn {
+      display: inline-block;
+      background-color: #27ae60;
+      color: white;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      margin-top: 20px;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+    .download-btn:hover {
+      background-color: #229954;
+      transform: translateY(-2px);
+    }
+  </style>
+  <!-- Inlined JSZip and FileSaver for a single-file solution -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+</head>
+<body>
+
+  <div class="container">
+    <h1>🔓 Excel Sheet Unlocker (Local)</h1>
+    <p>This tool works entirely in your browser. No data leaves your computer.</p>
+
+    <div class="disclaimer" id="disclaimer">
+      <p><strong>Disclaimer:</strong> This tool is for unlocking your own Excel files when you’ve forgotten the sheet protection password. Do not use it on files you don’t own or without permission.</p>
+      <button id="agreeBtn">I Understand, Continue</button>
+    </div>
+
+    <div class="app-content" id="app">
+      <div class="drop-zone" id="dropZone">
+        <p>Drop your <code>.xlsx</code> file here or click to select.</p>
+        <input type="file" id="fileInput" accept=".xlsx" style="display:none;">
+      </div>
+      <!-- Status container will now hold the download button -->
+      <p id="status"></p>
+    </div>
+  </div>
+
+  <script>
+    const agreeBtn = document.getElementById("agreeBtn");
+    const disclaimer = document.getElementById("disclaimer");
+    const app = document.getElementById("app");
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+    const status = document.getElementById("status");
+
+    // Add event listeners for the disclaimer and file handling
+    agreeBtn.addEventListener("click", () => {
+      disclaimer.style.display = "none";
+      app.style.display = "block";
+    });
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("dragover", e => {
+      e.preventDefault();
+      dropZone.style.background = "#eef";
+    });
+    dropZone.addEventListener("dragleave", e => {
+      e.preventDefault();
+      dropZone.style.background = "";
+    });
+    dropZone.addEventListener("drop", e => {
+      e.preventDefault();
+      dropZone.style.background = "";
+      handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener("change", e => handleFile(e.target.files[0]));
+
+    /**
+     * Handles the file processing after a file is selected or dropped.
+     * @param {File} file The file object to process.
+     */
+    async function handleFile(file) {
+      // Clear previous status
+      status.innerHTML = "";
+
+      if (!file) return;
+      if (!file.name.endsWith(".xlsx")) {
+        status.textContent = "❌ Please upload an .xlsx file.";
+        return;
+      }
+      status.textContent = "Processing... please wait.";
+
+      try {
+        const data = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(data);
+
+        for (const [path, entry] of Object.entries(zip.files)) {
+          if (path.match(/^xl\/worksheets\/.*\.xml$/) || path === "xl/workbook.xml") {
+            let content = await entry.async("string");
+            
+            let newContent = content
+              .replace(/<sheetProtection[^>]*\/>/gi, "")
+              .replace(/<sheetProtection\b.*?<\/sheetProtection>/gis, "")
+              .replace(/<workbookProtection[^>]*\/>/gi, "")
+              .replace(/<workbookProtection\b.*?<\/workbookProtection>/gis, "");
+
+            if (newContent !== content) {
+              zip.file(path, newContent);
+            }
+          }
+        }
+
+        const blob = await zip.generateAsync({type:"blob"});
+        const unlockedFileName = file.name.replace(".xlsx", "_unlocked.xlsx");
+
+        // Create a download button
+        const downloadLink = document.createElement('a');
+        downloadLink.className = 'download-btn';
+        downloadLink.textContent = '✅ Download Unlocked File';
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = unlockedFileName;
+
+        // Trigger the download directly on click
+        downloadLink.addEventListener('click', () => {
+          setTimeout(() => URL.revokeObjectURL(downloadLink.href), 10000);
+        });
+
+        // Clear the "Processing" message and append the new button
+        status.textContent = '';
+        status.appendChild(downloadLink);
+
+      } catch (error) {
+        console.error("Error processing file:", error);
+        status.textContent = "An error occurred. Please try again.";
+      }
+    }
+  </script>
+</body>
+</html>

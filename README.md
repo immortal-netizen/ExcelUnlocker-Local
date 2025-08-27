@@ -14,7 +14,7 @@ This is a simple, local-first web tool that allows you to unlock protected `.xls
 
 ## 🚀 How to Use
 
-1.  Download the `index.html` file to your computer.
+1.  Download the `ExcelUnlockerLocal.html` file to your computer.
 
 2.  Open the file in any modern web browser (e.g., Chrome, Firefox, Edge).
 
